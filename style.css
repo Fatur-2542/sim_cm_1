@@ -1,0 +1,43 @@
+```text
+style.css
+```
+
+```css
+body {
+    font-family: 'Segoe UI', sans-serif;
+    line-height: 1.8;
+    background-color: #f8f9fa;
+}
+
+h1 {
+    color: #1f4e79;
+    border-bottom: 3px solid #1f4e79;
+    padding-bottom: 10px;
+}
+
+h2 {
+    color: #2e75b6;
+}
+
+h3 {
+    color: #5b9bd5;
+}
+
+code {
+    background-color: #eeeeee;
+    color: #c7254e;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+pre {
+    background-color: #272822;
+    color: black;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.table {
+    background-color: white;
+}
+```
