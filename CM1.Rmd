@@ -1,0 +1,335 @@
+---
+title: "Analisis Revenue Kategori Film pada Database Sakila"
+author: "Alifatur Naufal Daniswara_Kelas D_M0725025"
+date: "`r Sys.Date()`"
+
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: style.css
+---
+
+# Pendahuluan
+
+## Latar Belakang
+
+Database Sakila merupakan database contoh dari MySQL yang berisi data operasional penyewaan film DVD. Database ini mencakup informasi pelanggan, pembayaran, inventori film, kategori film, aktor, hingga transaksi rental.
+
+Pada laporan ini dilakukan analisis mengenai:
+
+> **Kategori film yang menghasilkan revenue tertinggi pada database Sakila.**
+
+Analisis ini penting karena dapat membantu perusahaan rental film memahami kategori film yang paling menguntungkan sehingga strategi pemasaran, pengadaan stok, dan promosi dapat difokuskan pada kategori dengan performa terbaik.
+
+---
+
+# Rumusan Masalah
+
+1. Kategori film apa yang menghasilkan revenue tertinggi?
+2. Bagaimana distribusi revenue tiap kategori film?
+3. Apa insight bisnis yang dapat diperoleh dari hasil analisis?
+
+---
+
+# Persiapan Library
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+library(DBI)
+library(RMySQL)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(knitr)
+library(kableExtra)
+```
+
+---
+
+# Koneksi Database MySQL
+
+
+
+```{r,eval=FALSE}
+con <- DBI::dbConnect(odbc::odbc(),
+                       Driver = "MySQL ODBC 8.0 ANSI Driver",
+                       Server = "127.0.0.1",
+                       Database = "sakila",
+                       UID = "root",
+                       PWD = "******",
+                       Port = 3306)
+```
+---
+
+# Query SQL
+
+Berikut query SQL yang digunakan untuk menghitung total revenue berdasarkan kategori film.
+
+```sql
+SELECT
+    c.name AS category,
+    COUNT(p.payment_id) AS total_transaction,
+    SUM(p.amount) AS total_revenue,
+    AVG(p.amount) AS avg_payment
+FROM payment p
+JOIN rental r
+    ON p.rental_id = r.rental_id
+JOIN inventory i
+    ON r.inventory_id = i.inventory_id
+JOIN film f
+    ON i.film_id = f.film_id
+JOIN film_category fc
+    ON f.film_id = fc.film_id
+JOIN category c
+    ON fc.category_id = c.category_id
+GROUP BY c.name
+ORDER BY total_revenue DESC;
+```
+
+---
+
+# Mengambil Data dari Database
+
+```{r}
+query <- "
+SELECT
+    c.name AS category,
+    COUNT(p.payment_id) AS total_transaction,
+    SUM(p.amount) AS total_revenue,
+    AVG(p.amount) AS avg_payment
+FROM payment p
+JOIN rental r
+    ON p.rental_id = r.rental_id
+JOIN inventory i
+    ON r.inventory_id = i.inventory_id
+JOIN film f
+    ON i.film_id = f.film_id
+JOIN film_category fc
+    ON f.film_id = fc.film_id
+JOIN category c
+    ON fc.category_id = c.category_id
+GROUP BY c.name
+ORDER BY total_revenue DESC;
+"
+
+revenue_category <- dbGetQuery(con, query)
+
+head(revenue_category)
+```
+
+---
+
+# Menampilkan Tabel Revenue
+
+```{r}
+revenue_category %>%
+  mutate(
+    total_revenue = dollar(total_revenue),
+    avg_payment = dollar(avg_payment)
+  ) %>%
+  kable(
+    caption = "Tabel Revenue Kategori Film",
+    align = "c"
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE
+  )
+```
+
+---
+
+# Visualisasi Revenue per Kategori
+
+```{r fig.width=11, fig.height=6}
+revenue_category %>%
+  ggplot(aes(
+    x = reorder(category, total_revenue),
+    y = total_revenue,
+    fill = total_revenue
+  )) +
+  geom_col() +
+  coord_flip() +
+  scale_y_continuous(labels = dollar_format()) +
+  labs(
+    title = "Revenue Berdasarkan Kategori Film",
+    subtitle = "Database Sakila",
+    x = "Kategori Film",
+    y = "Total Revenue"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+---
+
+# Analisis Statistik
+
+## Menghitung Persentase Kontribusi Revenue
+
+```{r}
+revenue_category <- revenue_category %>%
+  mutate(
+    contribution_percent =
+      (total_revenue / sum(total_revenue)) * 100
+  )
+
+revenue_category %>%
+  select(category, total_revenue, contribution_percent) %>%
+  arrange(desc(total_revenue)) %>%
+  kable(
+    digits = 2,
+    caption = "Kontribusi Revenue Tiap Kategori"
+  ) %>%
+  kable_styling(full_width = FALSE)
+```
+
+---
+
+# Persamaan Matematis (LaTeX)
+
+Total revenue dihitung menggunakan persamaan berikut:
+
+$$
+Revenue = \sum_{i=1}^{n} Payment_i
+$$
+
+Sedangkan persentase kontribusi revenue dihitung dengan:
+
+$$
+Contribution\ Percentage =
+\frac{Revenue\ Category}{Total\ Revenue}
+\times 100%
+$$
+
+Rata-rata pembayaran:
+
+$$
+Average\ Payment =
+\frac{\sum Payment}{n}
+$$
+
+---
+
+# Interpretasi Hasil
+
+## 1. Kategori dengan Revenue Tertinggi
+
+Berdasarkan hasil visualisasi dan tabel revenue, kategori film dengan revenue tertinggi menunjukkan bahwa kategori tersebut memiliki permintaan paling tinggi dibanding kategori lainnya.
+
+Kategori dengan revenue besar dapat disebabkan oleh:
+
+* Jumlah film pada kategori tersebut lebih banyak.
+* Tingkat peminjaman lebih tinggi.
+* Frekuensi transaksi pelanggan yang tinggi.
+* Popularitas genre tertentu.
+
+---
+
+## 2. Distribusi Revenue
+
+Grafik menunjukkan adanya perbedaan revenue antar kategori film. Beberapa kategori memiliki kontribusi revenue yang jauh lebih besar dibanding kategori lain.
+
+Hal ini mengindikasikan bahwa preferensi pelanggan tidak merata pada seluruh kategori film.
+
+---
+
+## 3. Insight Bisnis
+
+Beberapa insight yang dapat diperoleh:
+
+### a. Fokus Promosi
+
+Perusahaan dapat memprioritaskan promosi pada kategori dengan revenue tinggi untuk meningkatkan profit.
+
+### b. Manajemen Inventori
+
+Kategori dengan performa tinggi dapat ditambah jumlah inventori filmnya agar mampu memenuhi permintaan pelanggan.
+
+### c. Strategi Bundling
+
+Kategori dengan revenue rendah dapat dipadukan dengan kategori populer melalui promo bundling.
+
+### d. Pengambilan Keputusan
+
+Data revenue membantu manajemen menentukan strategi bisnis berbasis data (data-driven decision making).
+
+---
+
+# Analisis Tambahan
+
+## Top 5 Kategori Film
+
+```{r}
+top5 <- revenue_category %>%
+  arrange(desc(total_revenue)) %>%
+  head(5)
+
+kable(
+  top5,
+  digits = 2,
+  caption = "Top 5 Revenue Kategori Film"
+) %>%
+  kable_styling(full_width = FALSE)
+```
+
+---
+
+# Visualisasi Top 5 Kategori
+
+```{r fig.width=9, fig.height=5}
+revenue_category %>%
+  arrange(desc(total_revenue)) %>%
+  head(5) %>%
+  ggplot(aes(
+    x = reorder(category, total_revenue),
+    y = total_revenue
+  )) +
+  geom_col() +
+  coord_flip() +
+  scale_y_continuous(labels = dollar_format()) +
+  labs(
+    title = "Top 5 Kategori Film Berdasarkan Revenue",
+    x = "Kategori",
+    y = "Revenue"
+  ) +
+  theme_bw()
+```
+
+---
+
+# Kesimpulan
+
+Berdasarkan analisis database Sakila, dapat disimpulkan bahwa:
+
+1. Revenue tiap kategori film memiliki perbedaan yang cukup signifikan.
+2. Kategori dengan revenue tertinggi menjadi kategori paling potensial dalam menghasilkan keuntungan.
+3. Analisis data menggunakan SQL dan R dapat membantu perusahaan memahami pola bisnis secara lebih efektif.
+4. Visualisasi data mempermudah interpretasi hasil dan pengambilan keputusan.
+
+Dengan memanfaatkan data transaksi rental, perusahaan dapat mengembangkan strategi bisnis yang lebih tepat sasaran.
+
+---
+
+# Penutup
+
+Laporan ini dibuat menggunakan:
+
+* RMarkdown
+* SQL MySQL
+* ggplot2
+* CSS customization
+* Persamaan LaTeX
+
+Sebagai implementasi analisis data dan visualisasi pada mata kuliah Sistem Informasi Manajemen.
+
+---
+
+# Menutup Koneksi Database
+
+```{r}
+dbDisconnect(con)
+```
+
+---
